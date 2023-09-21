@@ -1,0 +1,16 @@
+# Default output locations
+build/
+dist/
+.cache/
+
+# Generated ssh keys
+id_rsa*
+id_rsa*.pub
+
+# Hyper-V disks, snapshots, configs
+*.vhdx
+*.vmcx
+*.vmgs
+
+# cloud-init DVDs
+*.iso

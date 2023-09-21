@@ -1,0 +1,22 @@
+{
+    "build_dir": ".\\build",
+    "dist_dir": ".\\dist",
+    "iso_source": "http://www.gtlib.gatech.edu/pub/archlinux/iso/2021.05.01/archlinux-2021.05.01-x86_64.iso",
+    "iso_checksum": "sha1:09c1ce7dfc548f18291ec7b080b57301a476e63b",
+    "cloudinit_userdata": ".\\examples\\cloud-init\\user-data.tmpl",
+    "cloudinit_usertokens": {},
+    "cloudinit_includes": [
+        ".\\examples\\cloud-init-includes\\00-installer.sh.tmpl"
+    ],
+    "cloudinit_includetokens": {},
+    "ssh_user": "arch",
+    "vmname": "arch",
+    "cpus": "2",
+    "startup_memory": "1GB",
+    "min_memory": "32MB",
+    "max_memory": "32GB",
+    "disksize": "10GB",
+    "blocksize": "1MB",
+    "network_switch": "Default Switch",
+    "netadapter": "Wi-Fi"
+}

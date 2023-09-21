@@ -1,0 +1,11 @@
+# About
+
+## How it works
+
+A `cloud-init` iso is created and loaded into a virtual DVD drive if the `cloudinit_userdata` key is in the `build.json` file. This can be a completed `user-data` file or it can be a template. If it is a template, you can pass key/value pairs to replace the tokens as `cloudinit_usertokens`. Tokens are delimited by '{{' and '}}' to mark the start and end. Any leading and trailing whitespace inside the delimiters is trimmed. If the `-GenKeys` switch is passed to the build script, then a ssh key pair will be generated and the public key will be placed in any `cloud-init` templates where the token `{{ pubKey }}` is found.
+
+If you wish to use the `write_files` module of `cloud-init`, instead of having to store the file content directly in the `user-data` template, you can pass a list of files as `cloudinit_includes` instead. These can also be templates, with tokens replacement provided via `cloudinit_includetokens`. As in the provided example, this can be handy because `cloud-init` runs the `write_files` module before all of the `scripts` modules, so by writing to one of the `/var/lib/cloud/scripts` directories, you can cause scripts to be run when the system boots, which is one way of accomplishing an unattended installation that allows arbitrary commands without needing to be able to ssh to the guest or login. This is what is done in the `arch-minimal` example.
+
+It is expected that `cloud-init` is used to shutdown the VM when the first installation is complete. Otherwise, the build script will hang forever, as the function to reset the boot order in BIOS and detach the DVDs will wait until the VM is stopped from the inside, as there is no other reliable way of knowing when any installers running inside of it are complete.
+
+It is possible to provide post-install configuration scripts, for instance, if you want to run `ansible` roles against a newly-installed system. Scripts to run are provided to the build config via the `post_install` key. This is expected to be a directory. All files in this directory will be copied to the guest and executed in sorted order.

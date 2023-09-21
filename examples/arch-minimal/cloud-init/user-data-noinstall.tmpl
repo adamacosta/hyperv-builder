@@ -1,0 +1,11 @@
+#cloud-config
+users:
+  - name: root
+    ssh_authorized_keys:
+      - {{ pubKey }}
+
+packages:
+  - hyperv
+
+runcmd:
+  - systemctl start hv_kvp_daemon

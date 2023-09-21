@@ -1,0 +1,118 @@
+#!/bin/sh
+parted -s /dev/sda mklabel gpt
+parted -s -a optimal /dev/sda mkpart "EFI" fat32 1MiB 261MiB
+parted -s /dev/sda set 1 esp on
+parted -s -a optimal /dev/sda mkpart "Root" ext4 261MiB 100%
+
+mkfs.fat -F32 /dev/sda1
+mkfs.ext4 -G 4096 /dev/sda2
+
+mount /dev/sda2 /mnt
+mkdir /mnt/boot
+mount /dev/sda1 /mnt/boot
+
+# Minimal requirements to be able to connect to host after it initializes
+# Want to probably add man-db, man-pages, texinfo, and vim first time in
+pacstrap /mnt base linux cloud-init hyperv openssh sudo
+genfstab -U /mnt >> /mnt/etc/fstab
+
+# cloud-init creates a default user, but password login is disabled,
+# so we need a key to be able to login. Putting it in the default config
+# means we don't need to attach user data when the image is booted. Putting
+# NoCloud ahead of None in the source list means if we do provide userdata, it
+# will override the default config.
+cat << EOF > /mnt/etc/cloud/cloud.cfg.d/10-datasource.cfg
+datasource_list: [ NoCloud, None ]
+EOF
+
+cat << EOF > /mnt/etc/cloud/cloud.cfg.d/15-ssh.cfg
+ssh_authorized_keys:
+  - {{ pubKey }}
+EOF
+
+cat << EOF > /mnt/etc/hosts
+127.0.0.1        localhost
+::1              localhost
+EOF
+
+cat << EOF > /mnt/etc/systemd/network/20-ethernet.network
+[Match]
+Type=ether
+
+[Network]
+DHCP=yes
+IPv6PrivacyExtensions=yes
+
+[DHCPv4]
+RouteMetric=512
+
+[DHCPv6]
+RouteMetric=512
+EOF
+
+echo "en_US.UTF-8 UTF-8" >> /mnt/etc/locale.gen
+
+mkdir /mnt/etc/pacman.d/hooks
+cat << EOF > /mnt/etc/pacman.d/hooks/100-systemd-boot.hook
+[Trigger]
+Type = Package
+Operation = Upgrade
+Target = systemd
+
+[Action]
+Description = Updating systemd-boot
+When = PostTransaction
+Exec = /usr/bin/bootctl update
+EOF
+
+cat << EOF > /mnt/init.sh
+#!/bin/sh
+locale-gen
+localectl set-locale en_US.UTF-8
+
+mkinitcpio -P
+
+bootctl --path=/boot install
+EOF
+chmod +x /mnt/init.sh
+
+arch-chroot /mnt ./init.sh
+
+ROOT_UUID=`blkid -s PARTUUID -o value /dev/sda2`
+cat << EOF > /mnt/boot/loader/loader.conf
+default  arch.conf
+timeout  0
+console-mode max
+editor   no
+EOF
+
+cat << EOF > /mnt/boot/loader/entries/arch.conf
+title   Arch Linux
+linux   /vmlinuz-linux
+initrd  /initramfs-linux.img
+options root=PARTUUID=${ROOT_UUID} rw loglevel=3 console=ttyS0,115200n8 earlyprintk=ttyS0,115200 rootdelay=300
+EOF
+
+cat << EOF > /mnt/finalize.sh
+#!/bin/sh
+bootctl update
+
+systemctl enable systemd-networkd
+systemctl enable systemd-resolved
+systemctl enable sshd
+systemctl enable hv_kvp_daemon
+systemctl enable hv_utils
+systemctl enable hv_fcopy_daemon
+systemctl enable cloud-config
+systemctl enable cloud-final
+systemctl enable cloud-init
+systemctl enable cloud-init-local
+EOF
+chmod +x /mnt/finalize.sh
+
+arch-chroot /mnt ./finalize.sh
+
+rm /mnt/init.sh
+rm /mnt/finalize.sh
+
+umount -R /mnt
